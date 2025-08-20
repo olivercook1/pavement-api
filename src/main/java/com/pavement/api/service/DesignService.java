@@ -12,8 +12,6 @@ import java.util.List;
 public class DesignService {
 
     public DesignResponse calculate(DesignRequest req) {
-
-        // --- warnings collector (non-blocking) ---
         List<String> warnings = new ArrayList<>();
 
         // ---- 1) Design traffic (msa) ----
@@ -41,19 +39,15 @@ public class DesignService {
         if ("flexible".equalsIgnoreCase(req.getPavementType())) {
             double H;
             if (Tmsa >= 80.0) {
-                // CD 226 note: for T ≥ 80 msa, use 180 mm
-                H = 180.0;
+                H = 180.0; // rule: T >= 80 msa ⇒ 180 mm
                 warnings.add("CD 226 rule applied: T ≥ 80 msa ⇒ asphalt thickness set to 180 mm.");
             } else {
-                // Eq 2.24
                 double logT = Math.log10(Tmsa);
                 H = -16.05 * (logT * logT) + 101.0 * logT + 45.8;
-                // clamp to 100–180 mm
                 if (H < 100.0) H = 100.0;
                 if (H > 180.0) H = 180.0;
             }
-            // Round UP to nearest 5 mm
-            asphaltThicknessMm = ceil5(H);
+            asphaltThicknessMm = ceil5(H); // round UP to nearest 5 mm
         } else {
             asphaltThicknessMm = 0.0; // other pavement types later
             warnings.add("Pavement type \"" + req.getPavementType() + "\" not yet implemented in this prototype.");
@@ -80,8 +74,8 @@ public class DesignService {
 
         double sum = surf + bind + baseAsphalt;
         if (sum > asphaltThicknessMm) {
-            double overflow = sum - asphaltThicknessMm; // will be multiple of 5
-            baseAsphalt = Math.max(0, baseAsphalt - overflow); // keeps multiples of 5
+            double overflow = sum - asphaltThicknessMm; // multiple of 5
+            baseAsphalt = Math.max(0, baseAsphalt - overflow);
         }
 
         List<Layer> layers = new ArrayList<>();
@@ -97,7 +91,7 @@ public class DesignService {
             layers.add(new Layer("HBGM base (min)", "HBGM", hbgmBaseMinMm));
         }
 
-        // Prototype capping rule for low CBR (placeholder bands; refine later to exact CD225/226 table)
+        // Placeholder capping thresholds (to be replaced with exact CD 225/226 table)
         double cappingMm = cappingForCbr(cbr);
         if (cappingMm > 0) {
             layers.add(new Layer("Capping", "Granular capping (prototype)", cappingMm));
@@ -107,6 +101,8 @@ public class DesignService {
         double overallTotal = asphaltThicknessMm + hbgmBaseMinMm + cappingMm;
 
         // ---- 5) Build response ----
+        Double cappingOut = (cappingMm > 0) ? cappingMm : null;
+
         DesignResponse res = new DesignResponse();
         res.setRecommendedStructure("Flexible (HBGM base), " + foundationClass);
         res.setClauseReference("CD 226 Eq 2.24; notes to Fig/Table; CD 225 CBR→E.");
@@ -117,16 +113,18 @@ public class DesignService {
         res.setMsaUsed(Tmsa);
         res.setBaseType(baseType);
         res.setBaseMinThicknessMm(hbgmBaseMinMm);
-        res.setCappingThicknessMm(cappingMm);
+
+        res.setCappingThicknessMm(cappingOut);                 // null when none
+        res.setCappingRecommended(cappingOut != null ? Boolean.TRUE : null);
+        res.setTotalConstructionThicknessMm(overallTotal);     // optional duplicate
+
         res.setWarnings(warnings);
         res.setLayers(layers);
         return res;
     }
 
-    // --- helpers ---
-    private static double ceil5(double x) {
-        return Math.ceil(x / 5.0) * 5.0;
-    }
+    // helpers
+    private static double ceil5(double x) { return Math.ceil(x / 5.0) * 5.0; }
 
     /**
      * Placeholder capping bands (to be replaced with exact CD 225/226 table):
@@ -142,7 +140,7 @@ public class DesignService {
         return 0.0;
     }
 
-    // Keep for backward compatibility with UI that sends a category
+    // Keep for UI compatibility if trafficCategory is sent instead of msa
     private double mapCategoryToMsa(String cat) {
         if (cat == null) return 10.0;
         return switch (cat.trim()) {
