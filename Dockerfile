@@ -2,15 +2,22 @@
 FROM eclipse-temurin:21-jdk-jammy AS build
 WORKDIR /workspace
 
-# Cache Maven deps
-COPY pom.xml .
-RUN --mount=type=cache,target=/root/.m2 \
-    mvn -DskipTests dependency:go-offline
+# Copy Maven Wrapper first (so we can use ./mvnw)
+COPY .mvn/ .mvn/
+COPY mvnw .
+RUN chmod +x mvnw
 
-# Copy sources and build
+# Copy pom only, warm the cache
+COPY pom.xml .
+
+# Cache Maven repository between layers (BuildKit cache mount)
+RUN --mount=type=cache,target=/root/.m2 \
+    ./mvnw -Dmaven.repo.local=/root/.m2/repository -DskipTests dependency:go-offline
+
+# Now copy sources and build
 COPY src ./src
 RUN --mount=type=cache,target=/root/.m2 \
-    mvn -DskipTests clean package
+    ./mvnw -Dmaven.repo.local=/root/.m2/repository -DskipTests clean package
 
 # ---------- Run stage ----------
 FROM eclipse-temurin:21-jre-jammy
