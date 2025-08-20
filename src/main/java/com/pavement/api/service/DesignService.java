@@ -25,19 +25,24 @@ public class DesignService {
         // ---- 3) Flexible with HBGM base: asphalt thickness (CD 226 Eq 2.24) ----
         double asphaltThicknessMm;
         if ("flexible".equalsIgnoreCase(req.getPavementType())) {
-            double logT = Math.log10(Tmsa);
-            double H = -16.05 * (logT * logT) + 101.0 * logT + 45.8;
-
-            // Notes: min 100, max 180; if T >= 80 msa, H = 180
-            if (Tmsa >= 80.0) H = 180.0;
-            H = Math.max(100.0, Math.min(180.0, H));
-
-            // round to nearest 5 mm
-            asphaltThicknessMm = Math.round(H / 5.0) * 5.0;
+            double H;
+            if (Tmsa >= 80.0) {
+                // CD 226 note: for T >= 80 msa, use 180 mm
+                H = 180.0;
+            } else {
+                // Eq 2.24
+                double logT = Math.log10(Tmsa);
+                H = -16.05 * (logT * logT) + 101.0 * logT + 45.8;
+                // clamp to 100–180 mm
+                if (H < 100.0) H = 100.0;
+                if (H > 180.0) H = 180.0;
+            }
+            // CD 226: round UP to the nearest 5 mm
+            asphaltThicknessMm = Math.ceil(H / 5.0) * 5.0;
         } else {
-            // Other pavement types not yet implemented
-            asphaltThicknessMm = 0.0;
+            asphaltThicknessMm = 0.0; // other pavement types later
         }
+
 
         // ---- 4) Build result ----
         DesignResponse res = new DesignResponse();
