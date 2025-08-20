@@ -46,12 +46,14 @@ public class DesignService {
 
         // ---- 4) Build result ----
         DesignResponse res = new DesignResponse();
-        res.setFoundationClass(foundationClass);
-
         res.setRecommendedStructure("Flexible (HBGM base), " + foundationClass);
-        // This is the asphalt thickness above the HBGM base per CD 226 Eq 2.24
+        // asphalt thickness above HBGM base per CD 226 Eq 2.24
+        res.setAsphaltThicknessMm(asphaltThicknessMm);
+        // keep totalThickness equal (for now) for compatibility with the UI
         res.setTotalThickness(asphaltThicknessMm);
+        res.setFoundationClass(foundationClass);
         res.setClauseReference("CD 226 Eq 2.24; notes to Fig/Table; CD 225 CBR→E.");
+
         return res;
     }
 

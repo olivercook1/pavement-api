@@ -1,13 +1,14 @@
 package com.pavement.api.dto;
 
 public class DesignResponse {
-    // Existing fields
+    // Existing fields (kept for compatibility)
     private String recommendedStructure;
-    private double totalThickness;
+    private double totalThickness;      // kept; same as asphaltThicknessMm for now
     private String clauseReference;
-
-    // NEW: explicit foundation class (FC1–FC4 from CD 225)
     private String foundationClass;
+
+    // NEW: explicit meaning
+    private double asphaltThicknessMm;
 
     public DesignResponse() { }
 
@@ -37,5 +38,12 @@ public class DesignResponse {
     }
     public void setFoundationClass(String foundationClass) {
         this.foundationClass = foundationClass;
+    }
+
+    public double getAsphaltThicknessMm() {
+        return asphaltThicknessMm;
+    }
+    public void setAsphaltThicknessMm(double asphaltThicknessMm) {
+        this.asphaltThicknessMm = asphaltThicknessMm;
     }
 }
