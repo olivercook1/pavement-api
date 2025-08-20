@@ -1,19 +1,20 @@
 package com.pavement.api.dto;
 
 import java.util.List;
+import com.pavement.api.domain.Layer;
 
 public class DesignResponse {
-    // Existing fields (kept for compatibility)
     private String recommendedStructure;
     private double totalThickness;      // kept; same as asphaltThicknessMm for now
     private String clauseReference;
     private String foundationClass;
 
-    // Explicit meaning
     private double asphaltThicknessMm;
 
-    // NEW: non-blocking messages for transparency
     private List<String> warnings;
+
+    // NEW: suggested asphalt layer breakdown (above HBGM base)
+    private List<Layer> layers;
 
     public DesignResponse() { }
 
@@ -34,4 +35,7 @@ public class DesignResponse {
 
     public List<String> getWarnings() { return warnings; }
     public void setWarnings(List<String> warnings) { this.warnings = warnings; }
+
+    public List<Layer> getLayers() { return layers; }
+    public void setLayers(List<Layer> layers) { this.layers = layers; }
 }
