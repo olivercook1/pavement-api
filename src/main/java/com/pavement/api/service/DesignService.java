@@ -7,64 +7,56 @@ import org.springframework.stereotype.Service;
 @Service
 public class DesignService {
 
-    /**
-     * NOTE: This is a placeholder rule set to demonstrate a working calculation path.
-     * It is NOT the CD 226 algorithm. We’ll swap this for standards-based logic later.
-     */
     public DesignResponse calculate(DesignRequest req) {
-        double cbr = req.getCbr();
-        int tc = Integer.parseInt(req.getTrafficCategory()); // validated to 2..5
-        int life = req.getDesignLife();
-        String type = req.getPavementType(); // validated to flexible|composite|rigid
 
-        // --- 1) Base thickness by CBR (very rough bands, demo only)
-        double base;
-        if (cbr < 2.5) {
-            base = 600;
-        } else if (cbr < 5.0) {
-            base = 450;
+        // ---- 1) Design traffic (msa) ----
+        double Tmsa = (req.getMsa() != null) ? req.getMsa() : mapCategoryToMsa(req.getTrafficCategory());
+        if (Tmsa < 1.0) Tmsa = 1.0;
+        if (Tmsa > 400.0) Tmsa = 400.0;
+
+        // ---- 2) Foundation class from CBR (CD 225) ----
+        // E = 17.6 * CBR^0.64  [nominal mapping]
+        double E = 17.6 * Math.pow(req.getCbr(), 0.64);
+        String foundationClass = (E >= 400.0) ? "FC4"
+                                : (E >= 200.0) ? "FC3"
+                                : (E >= 100.0) ? "FC2"
+                                : "FC1";
+
+        // ---- 3) Flexible with HBGM base: asphalt thickness (CD 226 Eq 2.24) ----
+        double asphaltThicknessMm;
+        if ("flexible".equalsIgnoreCase(req.getPavementType())) {
+            double logT = Math.log10(Tmsa);
+            double H = -16.05 * (logT * logT) + 101.0 * logT + 45.8;
+
+            // Notes: min 100, max 180; if T >= 80 msa, H = 180
+            if (Tmsa >= 80.0) H = 180.0;
+            H = Math.max(100.0, Math.min(180.0, H));
+
+            // round to nearest 5 mm
+            asphaltThicknessMm = Math.round(H / 5.0) * 5.0;
         } else {
-            base = 300;
+            // Other pavement types not yet implemented
+            asphaltThicknessMm = 0.0;
         }
 
-        // --- 2) Asphalt/slab “surfacing” by traffic category (demo)
-        double surfacing; // mm of asphalt or equivalent
-        switch (tc) {
-            case 2 -> surfacing = 150;
-            case 3 -> surfacing = 200;
-            case 4 -> surfacing = 250;
-            case 5 -> surfacing = 300;
-            default -> surfacing = 200; // shouldn’t hit due to validation
-        }
+        // ---- 4) Build result ----
+        DesignResponse res = new DesignResponse();
+        res.setRecommendedStructure("Flexible (HBGM base), " + foundationClass);
+        // This is the asphalt thickness above the HBGM base per CD 226 Eq 2.24
+        res.setTotalThickness(asphaltThicknessMm);
+        res.setClauseReference("CD 226 Eq 2.24; notes to Fig/Table; CD 225 CBR→E.");
+        return res;
+    }
 
-        // --- 3) Adjust by pavement type (very rough demo factors)
-        // Flexible: as-is
-        // Composite: slightly thicker surfacing
-        // Rigid: rely less on granular base; more on slab
-        String structure;
-        if ("composite".equals(type)) {
-            surfacing += 25;
-            structure = "composite pavement (asphalt over cementitious/base)";
-        } else if ("rigid".equals(type)) {
-            base = Math.max(200, base - 100);
-            surfacing += 50;
-            structure = "rigid pavement (concrete/slab dominated)";
-        } else {
-            structure = "flexible pavement with granular base";
-        }
-
-        // --- 4) Design life factor (demo: +1% per year above 20, cap +30%)
-        double factor = 1.0;
-        if (life > 20) {
-            factor = Math.min(1.0 + (life - 20) * 0.01, 1.30);
-        }
-
-        double total = (base + surfacing) * factor;
-
-        // Round to nearest 10 mm for neat outputs
-        double rounded = Math.round(total / 10.0) * 10.0;
-
-        String clause = "CD 226 – placeholder (demo rules only)";
-        return new DesignResponse(structure, rounded, clause);
+    private double mapCategoryToMsa(String cat) {
+        // Temporary mapping to keep the current UI usable.
+        if (cat == null) return 10.0;
+        return switch (cat.trim()) {
+            case "2" -> 10.0;   // light
+            case "3" -> 30.0;   // medium
+            case "4" -> 80.0;   // heavy
+            case "5" -> 160.0;  // very heavy
+            default -> 10.0;
+        };
     }
 }
