@@ -1,36 +1,44 @@
 package com.pavement.api.dto;
 
-import java.util.List;
 import com.pavement.api.domain.Layer;
+import java.util.List;
 
 public class DesignResponse {
-    // Summary
+
     private String recommendedStructure;
     private String clauseReference;
 
-    // Asphalt thickness above the HBGM base
+    // Asphalt (above HBGM base) per CD 226 Eq 2.24
     private double asphaltThicknessMm;
 
-    // Kept for compatibility with earlier UI (same as asphaltThicknessMm)
+    // Kept for UI compatibility (same as asphaltThicknessMm for now)
     private double totalThickness;
 
-    // Foundation info
-    private String foundationClass;          // FC1–FC4
-    private Double foundationStiffnessMPa;   // E from CBR→E mapping (CD 225 proxy)
-    private Double msaUsed;                  // design traffic (msa) actually used
+    // Foundation (from CBR→E mapping)
+    private String foundationClass;
+    private Double foundationStiffnessMPa;
 
-    // Base info (note: asphalt thickness excludes this HBGM base)
-    private String baseType;                 // e.g., "HBGM"
-    private Double baseMinThicknessMm;       // advisory minimum (placeholder/configurable)
+    // Traffic actually used in calc (msa)
+    private Double msaUsed;
 
-    // Transparency
+    // Base type and its nominal minimum thickness
+    private String baseType;              // e.g. "HBGM"
+    private Double baseMinThicknessMm;    // e.g. 150
+
+    // New: capping advisory (prototype)
+    private Boolean cappingRecommended;   // true/false
+    private Double  cappingThicknessMm;   // e.g. 150 if recommended
+
+    // New: overall construction thickness (asphalt + base min + capping)
+    private Double totalConstructionThicknessMm;
+
+    // Breakdown + notes
+    private List<Layer> layers;
     private List<String> warnings;
 
-    // Suggested asphalt layer split (above base)
-    private List<Layer> layers;
-
-    public DesignResponse() {}
-
+    // Getters & setters
+    
+    
     public String getRecommendedStructure() { return recommendedStructure; }
     public void setRecommendedStructure(String recommendedStructure) { this.recommendedStructure = recommendedStructure; }
 
@@ -58,9 +66,18 @@ public class DesignResponse {
     public Double getBaseMinThicknessMm() { return baseMinThicknessMm; }
     public void setBaseMinThicknessMm(Double baseMinThicknessMm) { this.baseMinThicknessMm = baseMinThicknessMm; }
 
-    public List<String> getWarnings() { return warnings; }
-    public void setWarnings(List<String> warnings) { this.warnings = warnings; }
+    public Boolean getCappingRecommended() { return cappingRecommended; }
+    public void setCappingRecommended(Boolean cappingRecommended) { this.cappingRecommended = cappingRecommended; }
+
+    public Double getCappingThicknessMm() { return cappingThicknessMm; }
+    public void setCappingThicknessMm(Double cappingThicknessMm) { this.cappingThicknessMm = cappingThicknessMm; }
+
+    public Double getTotalConstructionThicknessMm() { return totalConstructionThicknessMm; }
+    public void setTotalConstructionThicknessMm(Double totalConstructionThicknessMm) { this.totalConstructionThicknessMm = totalConstructionThicknessMm; }
 
     public List<Layer> getLayers() { return layers; }
     public void setLayers(List<Layer> layers) { this.layers = layers; }
+
+    public List<String> getWarnings() { return warnings; }
+    public void setWarnings(List<String> warnings) { this.warnings = warnings; }
 }

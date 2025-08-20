@@ -117,6 +117,7 @@ public class DesignService {
         res.setMsaUsed(Tmsa);
         res.setBaseType(baseType);
         res.setBaseMinThicknessMm(hbgmBaseMinMm);
+        res.setCappingThicknessMm(cappingMm);
         res.setWarnings(warnings);
         res.setLayers(layers);
         return res;
