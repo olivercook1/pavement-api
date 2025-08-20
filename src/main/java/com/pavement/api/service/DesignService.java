@@ -11,6 +11,9 @@ import java.util.List;
 @Service
 public class DesignService {
 
+    // advisory/configurable default for HBGM base min thickness (NOT added to asphalt)
+    private static final double DEFAULT_HBGM_BASE_MIN_MM = 150.0;
+
     public DesignResponse calculate(DesignRequest req) {
 
         // Collect non-blocking warnings
@@ -47,7 +50,7 @@ public class DesignService {
                 H = 180.0;
                 warnings.add("CD 226 rule applied: T ≥ 80 msa ⇒ asphalt thickness set to 180 mm.");
             } else {
-                // Eq 2.24
+                // Eq 2.24 (proxy of nomograph)
                 double logT = Math.log10(Tmsa);
                 H = -16.05 * (logT * logT) + 101.0 * logT + 45.8;
                 // clamp to 100–180 mm
@@ -61,7 +64,7 @@ public class DesignService {
             warnings.add("Pavement type \"" + req.getPavementType() + "\" not yet implemented in this prototype.");
         }
 
-        // --- Simple default asphalt layer split tied to traffic ---
+        // --- 3b) Simple default asphalt layer split tied to traffic ---
         List<Layer> layers = new ArrayList<>();
 
         // minima by traffic
@@ -109,11 +112,21 @@ public class DesignService {
         // ---- 4) Build result ----
         DesignResponse res = new DesignResponse();
         res.setRecommendedStructure("Flexible (HBGM base), " + foundationClass);
+
         // asphalt thickness above HBGM base per CD 226 Eq 2.24
         res.setAsphaltThicknessMm(asphaltThicknessMm);
         // keep totalThickness equal (for now) for compatibility with the UI
         res.setTotalThickness(asphaltThicknessMm);
+
+        // transparency
         res.setFoundationClass(foundationClass);
+        res.setFoundationStiffnessMPa(E);
+        res.setMsaUsed(Tmsa);
+
+        // base info (advisory)
+        res.setBaseType("HBGM");
+        res.setBaseMinThicknessMm(DEFAULT_HBGM_BASE_MIN_MM);
+
         res.setClauseReference("CD 226 Eq 2.24; notes to Fig/Table; CD 225 CBR→E.");
         res.setWarnings(warnings);
         res.setLayers(layers);
