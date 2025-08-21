@@ -134,11 +134,29 @@ public class DesignService {
      * ≥ 2.0 → 0 mm
      */
     private static double cappingForCbr(double cbr) {
-        if (cbr < 1.0) return 300.0;
-        if (cbr < 1.5) return 225.0;
-        if (cbr < 2.0) return 150.0;
-        return 0.0;
+        // Map CBR to subgrade stiffness (MPa)
+        double E = 17.6 * Math.pow(cbr, 0.64);
+
+        // CD225 restricted-design envelope (approx FC2):
+        // taper from ~300 mm at E≈50 MPa down to 0 mm by E≈400 MPa.
+        final double E_MIN = 50.0;    // start of taper
+        final double E_MAX = 400.0;   // end of taper
+        final double CAP_AT_E_MIN = 300.0;
+
+        double capping;
+        if (E <= E_MIN) {
+            capping = CAP_AT_E_MIN;
+        } else if (E >= E_MAX) {
+            capping = 0.0;
+        } else {
+            double frac = (E_MAX - E) / (E_MAX - E_MIN); // 1 at 50 MPa → 0 at 400 MPa
+            capping = CAP_AT_E_MIN * frac;
+        }
+
+        // Round up to a sensible construction increment
+        return Math.ceil(capping / 25.0) * 25.0;
     }
+
 
     // Keep for UI compatibility if trafficCategory is sent instead of msa
     private double mapCategoryToMsa(String cat) {
