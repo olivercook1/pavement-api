@@ -42,13 +42,15 @@ class DesignServiceTest {
         // Asphalt thickness from CD226 Eq 2.24 (rounded up to 5)
         assertThat(res.getAsphaltThicknessMm()).isEqualTo(135.0);
 
-        // Total = asphalt + HBGM(150), no capping at CBR 5 → 135 + 150 = 285
-        assertThat(res.getTotalThickness()).isEqualTo(285.0);
+        // FC1 capping from Fig 3.17 @ E≈49.3 MPa → ~404.9 → round up to 425
+        assertThat(res.getCappingThicknessMm()).isEqualTo(425.0);
 
-        // HBGM present, capping absent
+        // Total = asphalt 135 + HBGM 150 + capping 425 = 710
+        assertThat(res.getTotalThickness()).isEqualTo(710.0);
+
+        // HBGM + Capping present
         assertThat(res.getLayers()).extracting(Layer::getName)
-                .contains("HBGM base (min)")
-                .doesNotContain("Capping");
+                .contains("HBGM base (min)", "Capping");
 
         // Asphalt layers sum equals asphaltThicknessMm
         assertThat(sumAsphalt(res)).isEqualTo(res.getAsphaltThicknessMm());
@@ -56,6 +58,7 @@ class DesignServiceTest {
         // All layers sum equals totalThickness
         assertThat(sumAll(res)).isEqualTo(res.getTotalThickness());
     }
+
 
     @Test
     void hbgm_rule_upper_bound_msa100_asphalt180_heavy_minima() {
@@ -73,14 +76,19 @@ class DesignServiceTest {
         assertThat(surf).isGreaterThanOrEqualTo(50.0);
         assertThat(bind).isGreaterThanOrEqualTo(80.0);
 
-        // HBGM present; with CBR 8 no capping expected
+        // FC3 “subbase on capping (UNBOUND)” @ E≈66.6 MPa:
+        // capping ~216.7 → 225; subbase ~236.8 → 250
+        assertThat(res.getCappingThicknessMm()).isEqualTo(225.0);
+        assertThat(res.getSubbaseThicknessMm()).isEqualTo(250.0);
+
+        // HBGM + Capping present
         assertThat(res.getLayers()).extracting(Layer::getName)
-                .contains("HBGM base (min)")
-                .doesNotContain("Capping");
+                .contains("HBGM base (min)", "Capping", "Subbase");
 
         // All layers sum equals reported totalThickness
         assertThat(sumAll(res)).isEqualTo(res.getTotalThickness());
     }
+
 
     @Test
     void hbgm_rule_floor_at_100mm_for_msa1() {
@@ -114,10 +122,13 @@ class DesignServiceTest {
         // CBR 1.4, 10 msa, 20-year, flexible
         DesignResponse res = service.calculate(req(1.4, 10.0, 20, "flexible"));
 
-        // Total = asphalt 135 + HBGM 150 + capping 225 = 510
-        assertThat(res.getTotalThickness()).isEqualTo(510.0);
+        // FC1: first point (30 MPa) holds left → 570 → round up to 575
+        assertThat(res.getCappingThicknessMm()).isEqualTo(575.0);
 
-        // Must include a Capping layer of 225 mm
+        // Total = asphalt 135 + HBGM 150 + capping 575 = 860
+        assertThat(res.getTotalThickness()).isEqualTo(860.0);
+
+        // Must include a Capping layer of 575 mm
         assertThat(res.getLayers()).extracting(Layer::getName).contains("Capping");
         double capping =
             res.getLayers().stream()
@@ -125,7 +136,7 @@ class DesignServiceTest {
                 .mapToDouble(Layer::getThicknessMm)
                 .findFirst()
                 .orElse(0.0);
-        assertThat(capping).isEqualTo(225.0);
+        assertThat(capping).isEqualTo(575.0);
     }
 
 }

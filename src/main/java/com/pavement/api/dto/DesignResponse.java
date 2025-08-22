@@ -2,6 +2,8 @@ package com.pavement.api.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.pavement.api.domain.Layer;
+import io.swagger.v3.oas.annotations.media.Schema;
+
 
 import java.util.List;
 
@@ -9,7 +11,7 @@ import java.util.List;
 public class DesignResponse {
     private String recommendedStructure;
     private String clauseReference;
-
+    
     // Primary results
     private Double asphaltThicknessMm;
     private Double totalThickness; // keep for UI compatibility
@@ -18,10 +20,20 @@ public class DesignResponse {
     private String foundationClass;
     private Double foundationStiffnessMPa;
     private Double msaUsed;
+    
+    @Schema(description = "Which CD225 scheme was used.", example = "FC3_SUBBASE_ON_CAP_UNBOUND")
+    private String foundationScheme;
+
+    public String getFoundationScheme() { return foundationScheme; }
+    public void setFoundationScheme(String foundationScheme) { this.foundationScheme = foundationScheme; }
+
 
     // Base / substructure
     private String baseType;            // e.g. HBGM
     private Double baseMinThicknessMm;  // e.g. 150
+
+    // Subbase (nullable so it hides when not used)
+    private Double subbaseThicknessMm;          // null if not used
 
     // Capping (nullable so it hides when not used)
     private Double cappingThicknessMm;           // null if not used
@@ -32,6 +44,7 @@ public class DesignResponse {
     private List<String> warnings;
     private List<Layer> layers;
 
+    
     // Getters / setters
     public String getRecommendedStructure() { return recommendedStructure; }
     public void setRecommendedStructure(String recommendedStructure) { this.recommendedStructure = recommendedStructure; }
@@ -59,6 +72,9 @@ public class DesignResponse {
 
     public Double getBaseMinThicknessMm() { return baseMinThicknessMm; }
     public void setBaseMinThicknessMm(Double baseMinThicknessMm) { this.baseMinThicknessMm = baseMinThicknessMm; }
+    
+    public Double getSubbaseThicknessMm() { return subbaseThicknessMm; }
+    public void setSubbaseThicknessMm(Double subbaseThicknessMm) { this.subbaseThicknessMm = subbaseThicknessMm; }
 
     public Double getCappingThicknessMm() { return cappingThicknessMm; }
     public void setCappingThicknessMm(Double cappingThicknessMm) { this.cappingThicknessMm = cappingThicknessMm; }
@@ -74,4 +90,5 @@ public class DesignResponse {
 
     public List<Layer> getLayers() { return layers; }
     public void setLayers(List<Layer> layers) { this.layers = layers; }
+    
 }

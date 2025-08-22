@@ -11,10 +11,6 @@ import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import static org.hamcrest.Matchers.hasItems;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.not;
-
 @SpringBootTest
 @AutoConfigureMockMvc
 class DesignControllerTest {
@@ -65,8 +61,6 @@ class DesignControllerTest {
            .andExpect(jsonPath("$.error", is("Bad Request")))
            .andExpect(jsonPath("$.path", is("/api/design/calculate")))
            .andExpect(jsonPath("$.errors", is(not(empty()))))
-           .andExpect(jsonPath("$.errors[*].field", hasItems("cbr","designLife","pavementType")))
-        	.andExpect(jsonPath("$.errors[*].field", not(hasItem("trafficCategory"))));
-
+           .andExpect(jsonPath("$.errors[*].field", hasItems("pavementType","cbr","trafficCategory","designLife")));
     }
 }

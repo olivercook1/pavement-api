@@ -8,6 +8,11 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.pavement.api.engine.cd225.Cd225Restricted;
+import com.pavement.api.engine.cd225.Cd225Restricted.Scheme;
+import com.pavement.api.engine.cd226.Cd226Flexible;
+
+
 @Service
 public class DesignService {
 
@@ -23,60 +28,29 @@ public class DesignService {
         if (Tmsa < 1.0) Tmsa = 1.0;
         if (Tmsa > 400.0) Tmsa = 400.0;
 
-        // ---- 2) Foundation class from CBR (CD 225, nominal mapping) ----
+        // ---- 2) Foundation class (CD225) ----
         double cbr = req.getCbr();
-        double E = 17.6 * Math.pow(cbr, 0.64); // MPa (nominal mapping)
-        if (cbr < 2.0 || cbr > 12.0) {
-            warnings.add("CBR→E mapping nominally valid for ~2–12% CBR; interpret foundation class with caution (CBR=" + cbr + ").");
-        }
-        String foundationClass = (E >= 400.0) ? "FC4"
-                              : (E >= 200.0) ? "FC3"
-                              : (E >= 100.0) ? "FC2"
-                              : "FC1";
+        var fInfo = Cd225Restricted.classifyFoundation(cbr, warnings);
+        double E = fInfo.stiffnessMPa();
+        String foundationClass = Cd225Restricted.enforceFc1LimitForTraffic(fInfo.classLabel(), Tmsa, warnings);
+
+
 
         // ---- 3) Flexible with HBGM base: asphalt thickness (CD 226 Eq 2.24) ----
         double asphaltThicknessMm;
         if ("flexible".equalsIgnoreCase(req.getPavementType())) {
-            double H;
-            if (Tmsa >= 80.0) {
-                H = 180.0; // rule: T >= 80 msa ⇒ 180 mm
-                warnings.add("CD 226 rule applied: T ≥ 80 msa ⇒ asphalt thickness set to 180 mm.");
-            } else {
-                double logT = Math.log10(Tmsa);
-                H = -16.05 * (logT * logT) + 101.0 * logT + 45.8;
-                if (H < 100.0) H = 100.0;
-                if (H > 180.0) H = 180.0;
-            }
-            asphaltThicknessMm = ceil5(H); // round UP to nearest 5 mm
+            asphaltThicknessMm = Cd226Flexible.asphaltThicknessMm(Tmsa, warnings);
         } else {
             asphaltThicknessMm = 0.0; // other pavement types later
             warnings.add("Pavement type \"" + req.getPavementType() + "\" not yet implemented in this prototype.");
         }
 
-        // ---- 3a) Split asphalt into layers (simple conservative defaults) ----
-        double minSurf = (Tmsa >= 80.0) ? 50.0 : 40.0;
-        double minBind = (Tmsa >= 80.0) ? 80.0 : 60.0;
 
-        double surf = minSurf;
-        double bind = minBind;
-        double baseAsphalt = asphaltThicknessMm - (surf + bind);
-
-        // relax minima if needed
-        if (baseAsphalt < 0) { bind = Math.min(bind, 60.0); baseAsphalt = asphaltThicknessMm - (surf + bind); }
-        if (baseAsphalt < 0) { surf = Math.min(surf, 40.0); baseAsphalt = asphaltThicknessMm - (surf + bind); }
-
-        // Round to 5s and keep total = asphaltThicknessMm
-        surf = ceil5(surf);
-        bind = ceil5(bind);
-        baseAsphalt = asphaltThicknessMm - (surf + bind);
-        if (baseAsphalt < 0) baseAsphalt = 0;
-        if (baseAsphalt % 5.0 != 0) baseAsphalt = ceil5(baseAsphalt);
-
-        double sum = surf + bind + baseAsphalt;
-        if (sum > asphaltThicknessMm) {
-            double overflow = sum - asphaltThicknessMm; // multiple of 5
-            baseAsphalt = Math.max(0, baseAsphalt - overflow);
-        }
+        // ---- 3a) Split asphalt into layers (engine) ----
+        var split = Cd226Flexible.splitAsphaltLayers(Tmsa, asphaltThicknessMm);
+        double surf = split.surfaceMm();
+        double bind = split.binderMm();
+        double baseAsphalt = split.baseMm();
 
         List<Layer> layers = new ArrayList<>();
         if (surf > 0) layers.add(new Layer("Surface", "SMA 10 surf", surf));
@@ -84,28 +58,43 @@ public class DesignService {
         if (baseAsphalt > 0) layers.add(new Layer("Base (asphalt)", "AC 32 dense base", baseAsphalt));
         warnings.add("Layer split uses conservative defaults; verify materials and layer minima to your project spec / CD 226 tables.");
 
-        // ---- 4) HBGM base minimum and optional capping for low CBR ----
+
+        // ---- 4) HBGM base minimum ----
         final String baseType = "HBGM";
-        final double hbgmBaseMinMm = "flexible".equalsIgnoreCase(req.getPavementType()) ? 150.0 : 0.0;
+        final double hbgmBaseMinMm = Cd226Flexible.baseMinThicknessMm(req.getPavementType());
         if (hbgmBaseMinMm > 0) {
             layers.add(new Layer("HBGM base (min)", "HBGM", hbgmBaseMinMm));
         }
 
-        // Placeholder capping thresholds (to be replaced with exact CD 225/226 table)
-        double cappingMm = cappingForCbr(cbr);
-        if (cappingMm > 0) {
-            layers.add(new Layer("Capping", "Granular capping (prototype)", cappingMm));
-            warnings.add(String.format("Low CBR (%.2f%%): added %.0f mm capping (prototype rule).", cbr, cappingMm));
-        }
 
-        double overallTotal = asphaltThicknessMm + hbgmBaseMinMm + cappingMm;
+        // ---- 4a) Foundation (CD225 restricted) — choose scheme by traffic; compute subbase + capping ----
+        // Default FC2 behaviour: SUBBASE ON CAPPING (UNBOUND subbase). We can expose a request option later.
+        Scheme scheme = Cd225Restricted.chooseScheme(Tmsa, req.getFc2Option(), warnings);
+
+
+        
+        
+        var foundation = Cd225Restricted.compute(cbr, scheme, warnings);
+        double subbaseMm = foundation.subbaseMm();
+        double cappingMm = foundation.cappingMm();
+
+        if (subbaseMm > 0) layers.add(new Layer("Subbase", "Granular subbase (CD225 restricted)", subbaseMm));
+        if (cappingMm > 0) layers.add(new Layer("Capping", "Granular capping (CD225 restricted)", cappingMm));
+
+        // ---- Totals including subbase/capping ----
+        double overallTotal = asphaltThicknessMm + hbgmBaseMinMm + subbaseMm + cappingMm;
 
         // ---- 5) Build response ----
+        Double subbaseOut = (subbaseMm > 0) ? subbaseMm : null;
         Double cappingOut = (cappingMm > 0) ? cappingMm : null;
 
+
         DesignResponse res = new DesignResponse();
+        
+        res.setFoundationScheme(String.valueOf(scheme));
+
         res.setRecommendedStructure("Flexible (HBGM base), " + foundationClass);
-        res.setClauseReference("CD 226 Eq 2.24; notes to Fig/Table; CD 225 CBR→E.");
+        res.setClauseReference("CD 226 Eq 2.24; CD 225 restricted figures.");
         res.setAsphaltThicknessMm(asphaltThicknessMm);
         res.setTotalThickness(overallTotal);
         res.setFoundationClass(foundationClass);
@@ -113,7 +102,7 @@ public class DesignService {
         res.setMsaUsed(Tmsa);
         res.setBaseType(baseType);
         res.setBaseMinThicknessMm(hbgmBaseMinMm);
-
+        res.setSubbaseThicknessMm(subbaseOut);                 // null when none
         res.setCappingThicknessMm(cappingOut);                 // null when none
         res.setCappingRecommended(cappingOut != null ? Boolean.TRUE : null);
         res.setTotalConstructionThicknessMm(overallTotal);     // optional duplicate
@@ -124,40 +113,8 @@ public class DesignService {
     }
 
     // helpers
-    private static double ceil5(double x) { return Math.ceil(x / 5.0) * 5.0; }
-
-    /**
-     * Placeholder capping bands (to be replaced with exact CD 225/226 table):
-     * CBR < 1.0 → 300 mm
-     * 1.0–<1.5 → 225 mm
-     * 1.5–<2.0 → 150 mm
-     * ≥ 2.0 → 0 mm
-     */
-    private static double cappingForCbr(double cbr) {
-        // Map CBR to subgrade stiffness (MPa)
-        double E = 17.6 * Math.pow(cbr, 0.64);
-
-        // CD225 restricted-design envelope (approx FC2):
-        // taper from ~300 mm at E≈50 MPa down to 0 mm by E≈400 MPa.
-        final double E_MIN = 50.0;    // start of taper
-        final double E_MAX = 400.0;   // end of taper
-        final double CAP_AT_E_MIN = 300.0;
-
-        double capping;
-        if (E <= E_MIN) {
-            capping = CAP_AT_E_MIN;
-        } else if (E >= E_MAX) {
-            capping = 0.0;
-        } else {
-            double frac = (E_MAX - E) / (E_MAX - E_MIN); // 1 at 50 MPa → 0 at 400 MPa
-            capping = CAP_AT_E_MIN * frac;
-        }
-
-        // Round up to a sensible construction increment
-        return Math.ceil(capping / 25.0) * 25.0;
-    }
-
-
+    
+    
     // Keep for UI compatibility if trafficCategory is sent instead of msa
     private double mapCategoryToMsa(String cat) {
         if (cat == null) return 10.0;
