@@ -33,16 +33,22 @@ public class DesignService {
         double cbr = req.getCbr();
         var fInfo = Cd225Restricted.classifyFoundation(cbr, warnings);
         double E = fInfo.stiffnessMPa();
+        
+     // existing:
         String foundationClass = Cd225Restricted.enforceFc1LimitForTraffic(fInfo.classLabel(), Tmsa, warnings);
 
-        // Map "FC1"/"FC2"/"FC3"/"FC4" to enum for the CD226 asphalt-base nomograph (right panel)
+        // NEW: prefer request override for nomograph curve if provided (but keep calculated FC in response)
+        String fcOverride = req.getFoundationClass();
+        String fcForNomograph = (fcOverride != null && !fcOverride.isBlank()) ? fcOverride : foundationClass;
+
         FoundationClass fcEnum;
         try {
-            fcEnum = FoundationClass.valueOf(foundationClass);
+            fcEnum = FoundationClass.valueOf(fcForNomograph);
         } catch (IllegalArgumentException ex) {
-            fcEnum = FoundationClass.FC2; // safe default
-            warnings.add("Unrecognised foundation class \"" + foundationClass + "\"; defaulting to FC2 for asphalt-base mapping.");
+            fcEnum = FoundationClass.FC2;
+            warnings.add("Unrecognised foundation class \"" + fcForNomograph + "\"; defaulting to FC2 for asphalt-base mapping.");
         }
+    
 
         // ---- 3) Flexible: choose ASPHALT BASE (right panel) if asphaltMaterial is provided; else HBGM Eq 2.24 ----
         double asphaltThicknessMm;
