@@ -44,3 +44,8 @@ out/
 
 # macOS
 .DS_Store
+
+# Ignore frontend+node in backend repo
+/thepavementcookbook/
+/pavement-ui/
+/node_modules/
