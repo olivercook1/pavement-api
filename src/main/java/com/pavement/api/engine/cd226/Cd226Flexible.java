@@ -1,12 +1,76 @@
 package com.pavement.api.engine.cd226;
 
+import java.util.Arrays;
 import java.util.List;
 
 public final class Cd226Flexible {
+
   private Cd226Flexible() {}
 
-  /** CD 226 Eq 2.24 for flexible with HBGM base, with T≥80 msa ⇒ 180 mm.
-   *  Rounds UP to nearest 5 mm and clamps to [100, 180].
+  // ------------------------------------------------------------
+  // NEW: Asphalt-base nomograph support (right panel)
+  // ------------------------------------------------------------
+
+  /** Foundation classes for the middle panel (y-level 6→1). */
+  public enum FoundationClass { FC1, FC2, FC3, FC4 }
+
+  /** Asphalt base materials for the right panel. */
+  public enum AsphaltMaterial { AC_40_60, EME2 }
+
+  // Middle panel: piecewise-linear points you supplied (MSA → Y level).
+  // (Clamped beyond the last point.)
+  private static final double[] FC1_X = { 0, 1, 2, 8, 20, 400 };
+  private static final double[] FC1_Y = { 6, 5, 4, 3, 2,   2  };
+
+  private static final double[] FC2_X = { 0, 2, 5, 14, 40, 80, 400 };
+  private static final double[] FC2_Y = { 6, 5, 4,  3,  2,  1,   1  };
+
+  private static final double[] FC3_X = { 0, 4, 10, 30, 80, 400 };
+  private static final double[] FC3_Y = { 6, 5,  4,  3,  2,  2   };
+
+  private static final double[] FC4_X = { 0, 10, 32, 80, 400 };
+  private static final double[] FC4_Y = { 6,  5,  4,  3,  3   };
+
+  private static double yFromMiddle(double msa, FoundationClass fc) {
+    return switch (fc) {
+      case FC1 -> interpClamped(FC1_X, FC1_Y, msa);
+      case FC2 -> interpClamped(FC2_X, FC2_Y, msa);
+      case FC3 -> interpClamped(FC3_X, FC3_Y, msa);
+      case FC4 -> interpClamped(FC4_X, FC4_Y, msa);
+    };
+  }
+
+  // Right panel: map Y level (6..1) → final asphalt thickness, then interpolate across Y.
+  // (Your step values; we interpolate and then round up to 5 mm.)
+  private static final double[] Y_LEVELS = { 6, 5, 4, 3, 2, 1 };
+
+  private static final double[] AC4060_MM = { 200, 200, 240, 280, 320, 360 };
+  private static final double[] EME2_MM   = { 200, 200, 200, 230, 270, 300 };
+
+  private static double asphaltFromRight(double yLevel, AsphaltMaterial mat) {
+    double y = Math.max(1.0, Math.min(6.0, yLevel)); // “stops at 1”
+    double[] table = (mat == AsphaltMaterial.AC_40_60) ? AC4060_MM : EME2_MM;
+    return interpClamped(Y_LEVELS, table, y);
+  }
+
+  /**
+   * Flexible pavement with **asphalt base** (AC 40/60 or EME2).
+   * Uses middle-panel Y level from MSA+foundation, then right panel mapping to final asphalt mm.
+   * Returns thickness rounded UP to the nearest 5 mm.
+   */
+  public static int asphaltBaseThicknessMm(double Tmsa, FoundationClass foundation, AsphaltMaterial material) {
+    double y = yFromMiddle(Tmsa, foundation);
+    double mm = asphaltFromRight(y, material);
+    return (int) ceil5(mm);
+  }
+
+  // ------------------------------------------------------------
+  // EXISTING: HBGM base path (left panel via Eq 2.24) — unchanged
+  // ------------------------------------------------------------
+
+  /**
+   * CD 226 Eq 2.24 for flexible with HBGM base, with T≥80 msa ⇒ 180 mm.
+   * Rounds UP to nearest 5 mm and clamps to [100, 180].
    */
   public static double asphaltThicknessMm(double Tmsa, List<String> warnings) {
     double H;
@@ -54,9 +118,21 @@ public final class Cd226Flexible {
   public static record AsphaltSplit(double surfaceMm, double binderMm, double baseMm) {}
 
   private static double ceil5(double x) { return Math.ceil(x / 5.0) * 5.0; }
-  
-  public static double baseMinThicknessMm(String pavementType) {
-	  return "flexible".equalsIgnoreCase(pavementType) ? 150.0 : 0.0;
-	}
 
+  // Keep-as-is from your version
+  public static double baseMinThicknessMm(String pavementType) {
+    return "flexible".equalsIgnoreCase(pavementType) ? 150.0 : 0.0;
+  }
+
+  // ---------- helper: monotone piecewise-linear interpolation with clamping ----------
+  private static double interpClamped(double[] xs, double[] ys, double xq) {
+    if (xq <= xs[0]) return ys[0];
+    if (xq >= xs[xs.length - 1]) return ys[ys.length - 1];
+    int j = Arrays.binarySearch(xs, xq);
+    if (j >= 0) return ys[j];
+    j = -j - 1;          // insertion point
+    int i = j - 1;
+    double t = (xq - xs[i]) / (xs[j] - xs[i]);
+    return ys[i] + t * (ys[j] - ys[i]);
+  }
 }

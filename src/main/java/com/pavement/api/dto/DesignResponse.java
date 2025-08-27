@@ -12,37 +12,55 @@ public class DesignResponse {
     private String recommendedStructure;
     private String clauseReference;
     
-    // Primary results
+ // Primary results
+    @Schema(description = "Total asphalt thickness (mm) from CD 226 Eq 2.24 (rounded to 5).", example = "160")
     private Double asphaltThicknessMm;
-    private Double totalThickness; // keep for UI compatibility
+
+    @Schema(description = "Legacy duplicate of totalConstructionThicknessMm.", deprecated = true, example = "1010")
+    private Double totalThickness;
 
     // Foundation
+    @Schema(description = "Foundation class from CBR→E mapping (after FC1>20 msa rule).", example = "FC2")
     private String foundationClass;
+
+    @Schema(description = "Foundation stiffness E (MPa) computed from CBR.", example = "27.4")
     private Double foundationStiffnessMPa;
+
+    @Schema(description = "Design traffic used (msa).", example = "30")
     private Double msaUsed;
-    
+
     @Schema(description = "Which CD225 scheme was used.", example = "FC3_SUBBASE_ON_CAP_UNBOUND")
     private String foundationScheme;
-
-    public String getFoundationScheme() { return foundationScheme; }
-    public void setFoundationScheme(String foundationScheme) { this.foundationScheme = foundationScheme; }
-
-
+    
     // Base / substructure
-    private String baseType;            // e.g. HBGM
-    private Double baseMinThicknessMm;  // e.g. 150
+    @Schema(description = "Base type used by the design.", example = "HBGM")
+    private String baseType;
 
-    // Subbase (nullable so it hides when not used)
-    private Double subbaseThicknessMm;          // null if not used
+    @Schema(description = "Minimum base thickness applied (mm).", example = "150")
+    private Double baseMinThicknessMm;
 
-    // Capping (nullable so it hides when not used)
-    private Double cappingThicknessMm;           // null if not used
-    private Boolean cappingRecommended;          // null if not used
-    private Double totalConstructionThicknessMm; // optional duplicate of total
+    // Subbase (nullable)
+    @Schema(description = "Subbase thickness (mm) when applicable; null when not used.", example = "250", nullable = true)
+    private Double subbaseThicknessMm;
+
+    // Capping (nullable)
+    @Schema(description = "Capping thickness (mm) when applicable; null when not used.", example = "450", nullable = true)
+    private Double cappingThicknessMm;
+
+    @Schema(description = "True if capping is recommended/used; null when not applicable.", example = "true", nullable = true)
+    private Boolean cappingRecommended;
+
+    // Totals
+    @Schema(description = "Total constructed thickness including asphalt + base min + subbase + capping (mm).", example = "1010")
+    private Double totalConstructionThicknessMm;
 
     // Details
+    @Schema(description = "Informational warnings/notes from the calculation.", example = "[\"CD225 3.14: FC1 not permitted for T > 20 msa…\"]")
     private List<String> warnings;
+
+    @Schema(description = "Layer breakdown in construction order (top to bottom).")
     private List<Layer> layers;
+
 
     
     // Getters / setters
@@ -63,6 +81,12 @@ public class DesignResponse {
 
     public Double getFoundationStiffnessMPa() { return foundationStiffnessMPa; }
     public void setFoundationStiffnessMPa(Double foundationStiffnessMPa) { this.foundationStiffnessMPa = foundationStiffnessMPa; }
+    
+ 
+
+    public String getFoundationScheme() { return foundationScheme; }
+    public void setFoundationScheme(String foundationScheme) { this.foundationScheme = foundationScheme; }
+
 
     public Double getMsaUsed() { return msaUsed; }
     public void setMsaUsed(Double msaUsed) { this.msaUsed = msaUsed; }
