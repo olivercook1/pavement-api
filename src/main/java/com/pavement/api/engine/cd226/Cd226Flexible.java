@@ -42,11 +42,18 @@ public final class Cd226Flexible {
 
   // Right panel: map Y level (6..1) → final asphalt thickness, then interpolate across Y.
   // (Your step values; we interpolate and then round up to 5 mm.)
-  private static final double[] Y_LEVELS = { 6, 5, 4, 3, 2, 1 };
 
-  private static final double[] AC4060_MM = { 200, 200, 240, 280, 320, 360 };
-  private static final double[] EME2_MM   = { 200, 200, 200, 230, 270, 300 };
+    // y must be ascending for interpolation
+    private static final double[] Y_LEVELS = { 1, 2, 3, 4, 5, 6 };
+    // Reordered to match ascending y (y=1..6)
+    private static final double[] AC4060_MM = { 360, 320, 280, 240, 200, 200 };
+    private static final double[] EME2_MM   = { 300, 270, 230, 200, 200, 200 };
 
+  
+  
+  
+  
+  
   private static double asphaltFromRight(double yLevel, AsphaltMaterial mat) {
     double y = Math.max(1.0, Math.min(6.0, yLevel)); // “stops at 1”
     double[] table = (mat == AsphaltMaterial.AC_40_60) ? AC4060_MM : EME2_MM;
