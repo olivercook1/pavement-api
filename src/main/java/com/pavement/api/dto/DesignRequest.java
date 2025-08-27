@@ -44,6 +44,16 @@ public class DesignRequest {
 			"SUBBASE_ONLY_UNBOUND", "SUBBASE_ONLY_BOUND", "SUBBASE_ON_CAP_UNBOUND", "SUBBASE_ON_CAP_BOUND",
 			"SUBBASE_ON_BOUND_CAP_UNBOUND", "SUBBASE_ON_BOUND_CAP_BOUND" }, example = "SUBBASE_ON_CAP_UNBOUND")
 	private String fc2Option;
+	
+	private String foundationClass;
+	public String getFoundationClass() { return foundationClass; }
+	public void setFoundationClass(String foundationClass) { this.foundationClass = foundationClass; }
+	
+	private String asphaltMaterial; // "AC_40_60" or "EME2" (null/blank = use HBGM path)
+	public String getAsphaltMaterial() { return asphaltMaterial; }
+	public void setAsphaltMaterial(String asphaltMaterial) { this.asphaltMaterial = asphaltMaterial; }
+
+
 
 	public String getFc2Option() {
 		return fc2Option;
